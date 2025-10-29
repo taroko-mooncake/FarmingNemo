@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+openai>=1.40.0
+python-dotenv
+python-multipart
+streamlit
+json5
