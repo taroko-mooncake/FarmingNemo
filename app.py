@@ -113,12 +113,41 @@ Rules:
 - Use provided tool functions if needed.
 """
 
-INTERFACE_PROMPT = """You are an interface agent that helps a planning agent understand user instructions."""
+INTERFACE_PROMPT = """You are an interface agent that helps a planning agent understand user instructions and turn them into augmented inputs for the planning agent."""
 
 INSTRUCTION_PROCESSING_SYSTEM_PROMPT = """You are an expert in understanding and clarifying instructions. 
 Your task is to process the user's instruction and make it clear and concise for a planning agent. 
 Focus on extracting the key information and constraints.
 Respond with only the processed instruction.
+"""
+
+TASK_EXTRACTION_PROMPT = """You are a helpful assistant that converts natural language task descriptions into a structured JSON format.
+You must respond with ONE valid JSON object and nothing else.
+Do NOT include explanations, introductions, markdown, or text outside JSON.
+
+Strictly follow this schema for a single task:
+{
+    "id": str,
+    "type": str,
+    "species": str,
+    "block": str,
+    "row": str,
+    "lat": float,
+    "lon": float,
+    "duration_min": int,
+    "skill": str,
+    "earliest": str,
+    "latest": str,
+    "priority": int
+}
+
+If any information is missing from the user's description, use reasonable defaults or null values where appropriate.
+For 'id', generate a unique identifier like "Field XX".
+For 'lat' and 'lon', if not specified, use a default central farm location (e.g., 36.5, -121.5).
+For 'earliest' and 'latest', if not specified, use "06:00" and "18:00" respectively.
+For 'duration_min', if not specified, use 60.
+For 'priority', if not specified, use 3.
+For 'skill', infer from the task type (e.g., "harvest_l1", "prune_l1", "irrigation_l1", "weeding_l1", "pest_control_l1", "planting_l1").
 """
 
 # =========================================================
@@ -157,42 +186,7 @@ def extract_json_objects(text: str):
     return objs
 
 # =========================================================
-# Streamlit UI
-# =========================================================
-st.set_page_config(page_title="Farming Nemo", layout="wide")
-st.title("🌾 Farming Nemo")
-st.text("Outdoor farm work is hard to coordinate — plans change fast, and manual scheduling wastes time and causes errors. \
-This app uses agentic AI with NVIDIA Nemotron to turn plain-language farm instructions into optimized, safe task assignments,\
-helping crews work smarter and adapt instantly in the field.")
-st.markdown("Real-time reasoning and structured farm task planning using **NVIDIA Nemotron**.")
-
-default_instruction = (
-    "Harvest the lettuce, prune the tomatoes and irrigate everything south of latitude 36.55. "
-    "Alpha can't travel more then 2 miles; finish by 3pm; add 10-min hydration breaks every 90 min."
-)
-
-st.subheader('Input Instructions and System Prompts')
-st.info(
-        "**Worker JSON fields:** `name`, `skill` (e.g., `harvest_l1`, `irrigation_l2`), "
-        "`start`/`end` (HH:MM), `lat`/`lon` (decimal degrees).\n\n"
-        "**Task JSON fields:** `id`, `type` (e.g., `harvest`, `weeding`), `species`, `block`, `row`, `lat`/`lon`, "
-        "`duration_min`, `skill`, `earliest`/`latest` (HH:MM), `priority` (1-5).",
-    )
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.text_area("planner prompt", INSTRUCTION_PROCESSING_SYSTEM_PROMPT, height=150)
-with col2:
-    st.text_area("user prompt", PLANNER_PROMPT, height=150)
-with col3:
-    st.text_area("interface prompt", INTERFACE_PROMPT, height=150)
-
-st.subheader('Farm Manager Daily Instructions')
-col1, col2 = st.columns(2)
-with col1:
-    instruction = st.text_area("Instruction", default_instruction, height=150)
-with col2:
-    audio_bytes = st.audio_input("Or record your instruction:")
-
+# Sample data
 # Default workers and tasks (Salinas Valley, CA)
 sample_workers = [
     {"name": "Alpha", "skill": "harvest_l1", "start": "06:30", "end": "16:00", "lat": 36.377, "lon": -121.455},
@@ -250,10 +244,101 @@ sample_tasks = [
      "duration_min": 150, "skill": "weeding_l1", "earliest": "08:00", "latest": "17:00", "priority": 4},
 ]
 
+# =========================================================
+# Streamlit UI
+# =========================================================
+st.set_page_config(page_title="Farming Nemo", layout="wide")
+st.title("🌾 Farming Nemo")
+st.text("Outdoor farm work is hard to coordinate — plans change fast, and manual scheduling wastes time and causes errors. \
+This app uses agentic AI with NVIDIA Nemotron to turn plain-language farm instructions into optimized, safe task assignments,\
+helping crews work smarter and adapt instantly in the field.")
+st.markdown("Real-time reasoning and structured farm task planning using **NVIDIA Nemotron**.")
+
+# Initialize session state for workers and tasks if not already present
+if "workers_obj" not in st.session_state:
+    st.session_state.workers_obj = sample_workers
+if "tasks_obj" not in st.session_state:
+    st.session_state.tasks_obj = sample_tasks
+
+default_instruction = (
+    "Harvest the lettuce, prune the tomatoes and irrigate everything south of latitude 36.55. "
+    "Alpha can't travel more then 2 miles; finish by 3pm; add 10-min hydration breaks every 90 min."
+)
+
+st.subheader('Input Instructions and System Prompts')
+st.info(
+        "**Worker JSON fields:** `name`, `skill` (e.g., `harvest_l1`, `irrigation_l2`), "
+        "`start`/`end` (HH:MM), `lat`/`lon` (decimal degrees).\n\n"
+        "**Task JSON fields:** `id`, `type` (e.g., `harvest`, `weeding`), `species`, `block`, `row`, `lat`/`lon`, "
+        "`duration_min`, `skill`, `earliest`/`latest` (HH:MM), `priority` (1-5).",
+    )
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.text_area("planner prompt", INSTRUCTION_PROCESSING_SYSTEM_PROMPT, height=150)
+with col2:
+    st.text_area("user prompt", PLANNER_PROMPT, height=150)
+with col3:
+    st.text_area("interface prompt", INTERFACE_PROMPT, height=150)
+
+st.subheader('Farm Manager Daily Instructions')
+col1, col2 = st.columns(2)
+with col1:
+    instruction = st.text_area("Instruction", default_instruction, height=150)
+with col2:
+    audio_bytes = st.audio_input("Or record your instruction:")
+
+st.subheader('Add New Task')
+new_task_instruction = st.text_area("Describe the new task:", "Treat the red peppers with pest control in field 20, block A, row 9 at 36.55, -121.44 which should take 20 minutes", height=100, key="new_task_input")
+if st.button("Add Task using Nemotron"):
+    if new_task_instruction:
+        with st.spinner("Generating task JSON with Nemotron..."):
+            try:
+                response = client.chat.completions.create(
+                    model=NIM_MODEL,
+                    messages=[
+                        {"role": "system", "content": TASK_EXTRACTION_PROMPT},
+                        {"role": "user", "content": new_task_instruction}
+                    ],
+                    temperature=0.2,
+                    top_p=0.9,
+                    max_tokens=1024,
+                )
+                new_task_raw_json = response.choices[0].message.content
+                
+                # Attempt to parse the JSON
+                parser = json5 if USE_JSON5 else json
+                new_task = None
+                for raw in reversed(extract_json_objects(new_task_raw_json)):
+                    try:
+                        obj = parser.loads(raw)
+                        if isinstance(obj, dict) and all(k in obj for k in ["id", "type", "species"]):
+                            new_task = obj
+                            break
+                    except Exception:
+                        continue
+                
+                if new_task:
+                    # Ensure unique ID for the new task
+                    existing_ids = {task['id'] for task in st.session_state.tasks_obj}
+                    if new_task['id'] in existing_ids:
+                        i = 1
+                        while f"{new_task['id']}_{i}" in existing_ids:
+                            i += 1
+                        new_task['id'] = f"{new_task['id']}_{i}"
+
+                    st.session_state.tasks_obj.append(new_task)
+                    st.success(f"✅ Added new task: {new_task.get('id', 'N/A')}")
+                else:
+                    st.error(f"❌ Failed to parse task JSON from Nemotron: {new_task_raw_json}")
+            except Exception as e:
+                st.error(f"❌ Error generating task: {e}")
+    else:
+        st.warning("Please describe the new task in the text area.")
+
 # Text area input
 col1, col2 = st.columns(2)
-workers_json = col1.text_area("Workers (JSON)", json.dumps(sample_workers, indent=2), height=250)
-tasks_json = col2.text_area("Tasks (JSON)", json.dumps(sample_tasks, indent=2), height=250)
+workers_json = col1.text_area("Workers (JSON)", json.dumps(st.session_state.workers_obj, indent=2), height=250)
+tasks_json = col2.text_area("Tasks (JSON)", json.dumps(st.session_state.tasks_obj, indent=2), height=250)
 
 # Parse and preview as tables
 try:
@@ -263,8 +348,8 @@ except Exception as e:
     st.error(f"Invalid JSON format: {e}")
     st.stop()
 
-workers_df_edited = st.data_editor(workers_obj, width='stretch')
-tasks_df_edited = st.data_editor(tasks_obj, width='stretch')
+workers_df_edited = st.data_editor(workers_obj, width='stretch', height=200)
+tasks_df_edited = st.data_editor(tasks_obj, width='stretch', height=200)
 
 workers_df = pd.DataFrame(workers_df_edited)
 tasks_df = pd.DataFrame(tasks_df_edited)
@@ -280,7 +365,7 @@ with map_col2:
 
 if st.button("🚜 Plan with Nemotron"):
     if audio_bytes:
-        with st.spinner("Transcribing audio..."):
+        with st.spinner("Transcribing audio with Nvidia Parakeet..."):
             transcription = client.audio.transcriptions.create(
                 model="Parakeet-1.1b-ctc-en-us-asr-set-6.0",
                 file=audio_bytes
