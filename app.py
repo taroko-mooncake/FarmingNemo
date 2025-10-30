@@ -107,9 +107,10 @@ Strictly follow this schema:
 }
 
 Rules:
+- All tasks must be assigned and scheduled within worker skills and time windows.
 - Output ONLY valid JSON.
 - Prefer higher priority (1 = highest).
-- Match worker skills exactly.
+- Match worker skills as close as possible.
 - Use provided tool functions if needed.
 """
 
@@ -191,19 +192,8 @@ def extract_json_objects(text: str):
 sample_workers = [
     {"name": "Alpha", "skill": "harvest_l1", "start": "06:30", "end": "16:00", "lat": 36.377, "lon": -121.455},
     {"name": "Beta", "skill": "harvest_l2", "start": "06:30", "end": "17:30", "lat": 36.580, "lon": -121.460},
-    {"name": "Gamma", "skill": "prune_l1", "start": "07:00", "end": "15:00", "lat": 36.970, "lon": -121.750},
-    {"name": "Delta", "skill": "irrigation_l1", "start": "05:00", "end": "13:00", "lat": 36.490, "lon": -121.480},
-    {"name": "Epsilon", "skill": "pest_control_l2", "start": "08:00", "end": "16:00", "lat": 36.860, "lon": -121.440},
-    {"name": "Zeta", "skill": "planting_l1", "start": "07:00", "end": "14:30", "lat": 36.552, "lon": -121.443},
-    {"name": "Eta", "skill": "weeding_l1", "start": "08:00", "end": "17:00", "lat": 36.563, "lon": -121.447},
-    {"name": "Theta", "skill": "harvest_l2", "start": "06:30", "end": "17:00", "lat": 36.553, "lon": -121.565},
-    {"name": "Iota", "skill": "irrigation_l1", "start": "05:30", "end": "12:00", "lat": 36.486, "lon": -121.475},
-    {"name": "Kappa", "skill": "pest_control_l2", "start": "08:00", "end": "15:30", "lat": 36.461, "lon": -121.138},
-    {"name": "Lambda", "skill": "prune_l1", "start": "07:00", "end": "15:00", "lat": 36.272, "lon": -121.449},
-    {"name": "Mu", "skill": "harvest_l1", "start": "06:00", "end": "14:00", "lat": 36.575, "lon": -121.758},
-    {"name": "Nu", "skill": "planting_l1", "start": "06:30", "end": "13:30", "lat": 36.556, "lon": -121.432},
-    {"name": "Xi", "skill": "weeding_l1", "start": "07:30", "end": "16:30", "lat": 36.565, "lon": -121.439},
-    {"name": "Omicron", "skill": "harvest_l2", "start": "06:00", "end": "15:00", "lat": 36.579, "lon": -121.462},
+    {"name": "Gamma", "skill": "prune_l1", "start": "07:00", "end": "15:00", "lat": 36.270, "lon": -121.250},
+    {"name": "Delta", "skill": "irrigation_l1", "start": "05:00", "end": "13:00", "lat": 36.490, "lon": -121.480}
 ]
 sample_tasks = [
     {"id": "Field 03", "type": "harvest", "species": "lettuce", "block": "C", "row": "12", "lat": 36.5775, "lon": -121.558,
@@ -337,7 +327,7 @@ if st.button("Add Task using Nemotron"):
 
 # Text area input
 col1, col2 = st.columns(2)
-workers_json = col1.text_area("Workers (JSON)", json.dumps(st.session_state.workers_obj, indent=2), height=250)
+workers_json = col1.text_area("Teams (JSON)", json.dumps(st.session_state.workers_obj, indent=2), height=250)
 tasks_json = col2.text_area("Tasks (JSON)", json.dumps(st.session_state.tasks_obj, indent=2), height=250)
 
 # Parse and preview as tables
@@ -348,7 +338,10 @@ except Exception as e:
     st.error(f"Invalid JSON format: {e}")
     st.stop()
 
+st.subheader('Today\'s Workers and Tasks')
+st.text('Teams')
 workers_df_edited = st.data_editor(workers_obj, width='stretch', height=200)
+st.text('Tasks')
 tasks_df_edited = st.data_editor(tasks_obj, width='stretch', height=200)
 
 workers_df = pd.DataFrame(workers_df_edited)
