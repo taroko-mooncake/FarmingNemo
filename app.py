@@ -107,8 +107,10 @@ Strictly follow this schema:
 }
 
 Rules:
-- All tasks must be assigned and scheduled within worker skills and time windows.
-- Output ONLY valid JSON.
+- All tasks must be assigned
+- All tasks should fit within worker time windows.
+- Output ONLY valid JSON in the specified schema.
+- Minimize total travel distance.
 - Prefer higher priority (1 = highest).
 - Match worker skills as close as possible.
 - Use provided tool functions if needed.
@@ -278,7 +280,9 @@ with col2:
     audio_bytes = st.audio_input("Or record your instruction:")
 
 st.subheader('Add New Task')
-new_task_instruction = st.text_area("Describe the new task:", "Treat the red peppers with pest control in field 20, block A, row 9 at 36.55, -121.44 which should take 20 minutes", height=100, key="new_task_input")
+col1, col2 = st.columns(2)
+new_task_instruction = col1.text_area("Describe the new task:", "Treat the red peppers with pest control in field 20, block A, row 9 at 36.55, -121.44 which should take 20 minutes", height=100, key="new_task_input")
+col2.text_area("task prompt", TASK_EXTRACTION_PROMPT, height=100)
 if st.button("Add Task using Nemotron"):
     if new_task_instruction:
         with st.spinner("Generating task JSON with Nemotron..."):
@@ -350,10 +354,10 @@ tasks_df = pd.DataFrame(tasks_df_edited)
 map_col1, map_col2 = st.columns(2)
 with map_col1:
     st.subheader("👷 Worker Locations")
-    st.map(workers_df)
+    st.map(workers_df, zoom=8)
 with map_col2:
     st.subheader("🧺 Task Locations")
-    st.map(tasks_df)
+    st.map(tasks_df, zoom=8)
 
 
 if st.button("🚜 Plan with Nemotron"):
